@@ -4,7 +4,7 @@ An ESP32-based environmental monitoring prototype that uses an MQ-2 gas/smoke se
 
 > ⚠️ **Prototype Status:** The physical hardware setup has not yet been completed. The current sensor code contains placeholder values because the actual ESP32, MQ-2, DHT11, LED, buzzer, and wiring components are not currently available for testing.
 
-I unable do the physical setup since I don’t have the materials or the actual components to work with. You’ll need to handle the physical ESP32 setup and upload the code on your end.
+I'm unable to do the physical setup since I don’t have the necessary materials or the actual components to work with. You’ll need to handle the physical ESP32 setup and upload the code on your end.
 
 ## Sensor Draft
 
