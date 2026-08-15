@@ -3,3 +3,11 @@ SnoopSmoke_Diagnostics/SnoopSmoke_Diagnostics_Config.h
 backend/.env
 backend/data/*.json
 backend/data/*.tmp
+
+# Hosted site build/runtime files.
+node_modules/
+.next/
+dist/
+.wrangler/
+*.log
+*.tsbuildinfo
