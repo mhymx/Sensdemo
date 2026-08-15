@@ -104,6 +104,7 @@ export default function Dashboard() {
         <div className="nav">
           <Link href="/">Dashboard</Link>
           <Link href="/diagnostics">Diagnostics</Link>
+          <a href="https://blynk.cloud" rel="noreferrer" target="_blank">Blynk</a>
           <a href="https://github.com/mhymx/Sensdemo" rel="noreferrer" target="_blank">GitHub</a>
         </div>
       </nav>

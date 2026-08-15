@@ -11,7 +11,7 @@ export default function DiagnosticsPage() {
     <main className="docs-shell">
       <nav className="topbar" aria-label="Primary navigation">
         <Link className="brand" href="/"><span className="brand-mark" aria-hidden="true">SS</span><span>SnoopSmoke</span></Link>
-        <div className="nav"><Link href="/">Dashboard</Link><Link href="/diagnostics">Diagnostics</Link></div>
+        <div className="nav"><Link href="/">Dashboard</Link><Link href="/diagnostics">Diagnostics</Link><a href="https://blynk.cloud" rel="noreferrer" target="_blank">Blynk</a></div>
       </nav>
 
       <article className="docs-content">

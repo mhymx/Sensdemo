@@ -9,10 +9,31 @@ The software layer is hosted and is not tied to one laptop:
 
 - Dashboard: [snoopsmoke-monitor.immafishballl.chatgpt.site](https://snoopsmoke-monitor.immafishballl.chatgpt.site)
 - Diagnostics guide and downloads: [ESP32 diagnostics](https://snoopsmoke-monitor.immafishballl.chatgpt.site/diagnostics)
+- Blynk Console: [blynk.cloud](https://blynk.cloud)
+- Blynk template: [SnoopSmoke template](https://blynk.cloud/dashboard/1125501/templates/edit/2494504/info)
+- Blynk device: [snoopsmoke-01 dashboard](https://blynk.cloud/dashboard/1125501/global/devices/385854/organization/1125501/devices/4169159/dashboard)
 - Source repository: [github.com/mhymx/Sensdemo](https://github.com/mhymx/Sensdemo)
 
 No Node.js installation is needed to open the hosted dashboard. Node.js is
 only needed by someone maintaining or rebuilding the software.
+
+## Start here — the simple version
+
+The software is ready. The physical wiring is still unverified.
+
+1. Open the hosted [diagnostics guide](https://snoopsmoke-monitor.immafishballl.chatgpt.site/diagnostics).
+2. Download the diagnostic sketch.
+3. Have the engineer disconnect batteries and adapters, then connect only the
+   ESP32 to a laptop by USB.
+4. In Arduino IDE, upload the diagnostic sketch and open Serial Monitor at
+   **115200 baud**.
+5. Send `i`, `p`, and `w`, then send us the complete output and clear photos of
+   the board, MQ module, DHT11, and wiring.
+
+Stop there. Do not upload the production sensor firmware or power the unknown
+sensor wiring until the exact pins and MQ analog voltage have been verified.
+After that hardware checkpoint, we will upload the production firmware and
+test the hosted dashboard and Blynk alerts with real readings.
 
 ## System architecture
 
