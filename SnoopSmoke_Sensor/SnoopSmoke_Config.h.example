@@ -1,0 +1,20 @@
+#pragma once
+
+// Copy this file to SnoopSmoke_Config.h and replace the placeholder values.
+// SnoopSmoke_Config.h is ignored by Git so credentials stay local.
+
+#define SNOOPSMOKE_WIFI_SSID "YOUR_WIFI_NAME"
+#define SNOOPSMOKE_WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
+
+// A POST endpoint owned by your relay/server/app. Leave empty for local-only
+// operation. The firmware sends the JSON schema documented in README.md.
+#define SNOOPSMOKE_ALERT_WEBHOOK_URL "https://your-domain.example/api/alerts"
+#define SNOOPSMOKE_ALERT_API_KEY "REPLACE_WITH_LOCAL_SECRET"
+
+#define SNOOPSMOKE_DEVICE_ID "snoopsmoke-01"
+
+// Override these only after confirming the board and wiring.
+// #define SNOOPSMOKE_MQ2_PIN 34
+// #define SNOOPSMOKE_DHT_PIN 4
+// #define SNOOPSMOKE_BUZZER_PIN 25
+// #define SNOOPSMOKE_ALERT_LED_PIN 26
