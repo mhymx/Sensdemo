@@ -1,106 +1,100 @@
-# SnoopSmoke Sensor
+# SnoopSmoke
 
-SnoopSmoke is an ESP32-based smoke and environmental alert prototype. It reads an MQ-series gas/smoke sensor and a DHT11, activates local indicators, and can forward state-change alerts over Wi-Fi to either a custom app or a Blynk integration.
+SnoopSmoke is a school research prototype for detecting possible smoke or
+aerosol events with an ESP32, an MQ-series gas sensor, and a DHT11. It reports
+raw sensor readings, shows local warnings, sends state-change events over
+Wi-Fi, and gives the teacher a dashboard and optional Blynk notifications.
 
-```mermaid
+The software layer is hosted and is not tied to one laptop:
+
+- Dashboard: [snoopsmoke-monitor.immafishballl.chatgpt.site](https://snoopsmoke-monitor.immafishballl.chatgpt.site)
+- Diagnostics guide and downloads: [ESP32 diagnostics](https://snoopsmoke-monitor.immafishballl.chatgpt.site/diagnostics)
+- Source repository: [github.com/mhymx/Sensdemo](https://github.com/mhymx/Sensdemo)
+
+No Node.js installation is needed to open the hosted dashboard. Node.js is
+only needed by someone maintaining or rebuilding the software.
+
+## System architecture
+
+~~~mermaid
 flowchart LR
-    A[Smoke or vape] --> B[MQ-2 / MQ-135]
+    A[Possible smoke or aerosol] --> B[MQ-2 / appropriate sensor]
     B --> C[ESP32]
-    C --> D[Local LED and buzzer]
-    C --> E[Wi-Fi]
-    E --> F[Webhook or Blynk bridge]
-    F --> G[Teacher's phone app]
-    G --> H[Push notification]
-```
+    C --> D[HTTPS POST /api/alerts]
+    D --> E[Hosted SnoopSmoke API]
+    E --> F[D1 device and event history]
+    E --> G[Blynk relay]
+    G --> H[Blynk datastreams and events]
+    E --> I[Public dashboard]
+    H --> J[Teacher phone notifications]
+~~~
 
-## Important: what the photos confirm
+The ESP32 speaks only the SnoopSmoke webhook contract. It does not need the
+Blynk Arduino library. The hosted API can relay the same payload to Blynk and
+the dashboard, so changing the phone-facing app does not require redesigning
+the sensor firmware.
 
-The attached photos appear to show a classic ESP32 DevKit-style board, an MQ-series sensor, a blue DHT11 module, a buzzer, a pushbutton, and a perfboard. They do not make the GPIO labels or every soldered wire unambiguous.
+## Current status
 
-Therefore:
+### VERIFIED
 
-- The pin map below is a recommended universal target for a classic ESP32 DevKit-style board, not a claim about the existing solder joints.
-- Do not energize the board until each wire is traced with a multimeter or continuity tester.
-- If the physical board is an ESP32-S3, C3, or another variant, verify its pinout before using these defaults.
+- Public hosted dashboard is live.
+- Hosted POST /api/alerts is protected by a device API key.
+- Hosted D1 storage keeps current device state, event history, and cooldowns.
+- Public GET /api/healthz, GET /api/state, and GET /api/events routes work.
+- Invalid or unauthenticated alert requests are rejected.
+- A synthetic CLEAR event was accepted by the hosted API and relayed to Blynk
+  successfully.
+- Blynk template SnoopSmoke contains these datastreams:
+  V0 smoke, V1 temperature, V2 humidity, V3 status, and V4 wifi_rssi.
+- Blynk contains these event codes:
+  possible_smoke, smoke_detected, and clear.
+- The diagnostics sketch is downloadable from the hosted site.
+- The existing backend test suite passes: 7 tests.
+- The hosted site build, TypeScript check, targeted lint, and D1 migration
+  generation pass.
 
-## Recommended universal pin contract
+### UNTESTED
 
-The firmware defaults are in `SnoopSmoke_Sensor/SnoopSmoke_Sensor.ino` and can be overridden in the ignored local `SnoopSmoke_Sensor/SnoopSmoke_Config.h` file.
+- The soldered prototype wiring.
+- The exact carrier-board pinout around the ESP32-WROOM-32U module.
+- MQ module supply voltage and analog-output voltage.
+- Physical MQ-2 readings, DHT11 readings, LED, buzzer, and Wi-Fi on the
+  prototype.
+- Threshold calibration and false-positive behavior.
+- A real teacher-phone notification from the physical device.
 
-| Function | ESP32 GPIO | Connection | Notes |
-| --- | ---: | --- | --- |
-| MQ-2/MQ-135 analog output | 34 | Sensor `AO` → GPIO34 | ADC1, input-only on classic ESP32; keep the analog signal at or below the ESP32-safe voltage. |
-| DHT11 data | 4 | Module `S`/`DATA` → GPIO4 | Power the common 3-pin module from 3.3 V. A bare DHT11 needs a pull-up resistor. |
-| Alert LED | 26 | GPIO26 → 220–330 Ω resistor → LED anode | LED cathode to GND. External LED is preferred over a board-specific built-in LED. |
-| Active buzzer | 25 | GPIO25 → buzzer driver/input | Use a transistor or suitable driver if the buzzer draws more current than an ESP32 GPIO can supply. |
-| Optional acknowledge button | 27 | GPIO27 → pushbutton → GND | Reserved for a future mute/acknowledge feature; firmware currently does not require it. |
-| Common ground | GND | All modules and supplies share GND | A shared ground is required for reliable readings. |
+### ASSUMED / NOT A CLAIM
 
-### Power and voltage safety
+- GPIO34, GPIO4, GPIO25, and GPIO26 are only the recommended target map.
+- The sensor is described as detecting a possible smoke/aerosol event. It does
+  not identify nicotine and must not be presented as a nicotine detector.
+- MQ readings are raw prototype ADC values, not certified ppm measurements.
 
-1. MQ-2 and MQ-135 modules commonly need a 5 V heater supply. Do not assume the ESP32 3.3 V pin can power the heater.
-2. A 5 V-powered MQ module may produce an analog output above 3.3 V. Use a voltage divider or a level-safe sensor board before connecting `AO` to GPIO34. For a nominal 5 V signal, a 10 kΩ high-side resistor and 20 kΩ low-side resistor gives approximately 3.3 V at the ESP32 input; confirm the actual module output with a meter.
-3. Power the DHT11 logic from 3.3 V unless the exact module datasheet says otherwise.
-4. Do not connect an unknown 5 V signal directly to an ESP32 GPIO.
-5. Use ADC1 pins for analog sensors when Wi-Fi is enabled. On the classic ESP32, ADC2 is shared with Wi-Fi and can fail while Wi-Fi is active. [Espressif ADC guidance](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/adc.html)
+## Hosted software
 
-## Firmware behavior
+The public site provides:
 
-The current sketch:
+- / — dashboard with online/offline state, current readings, last detection,
+  and event history.
+- /diagnostics — beginner-friendly hardware-check procedure and downloads.
+- GET /api/healthz — service and Blynk relay status.
+- GET /api/state — current device state.
+- GET /api/events?limit=100 — event history.
+- GET /api/devices/:deviceId — one device.
+- POST /api/alerts — authenticated ESP32 ingestion endpoint.
 
-- Samples the MQ sensor and DHT11 every two seconds.
-- Reports `NORMAL`, `POSSIBLE SMOKE`, or `SMOKE DETECTED`.
-- Turns on the alert LED for warning/detection and the active buzzer for detection.
-- Detects failed DHT reads and sends `null` rather than `nan` in JSON.
-- Reconnects to Wi-Fi without stopping local monitoring.
-- Sends an alert only when the smoke state changes, then retries a pending alert if the network is unavailable.
-- Sends no cloud data until a local webhook URL is configured.
+The public read-only dashboard is intentionally simple for a school prototype.
+The write endpoint is separate and requires:
 
-### Configure Wi-Fi without committing secrets
+~~~http
+X-API-Key: YOUR_DEVICE_API_KEY
+Content-Type: application/json
+~~~
 
-1. Copy `SnoopSmoke_Sensor/SnoopSmoke_Config.h.example` to `SnoopSmoke_Sensor/SnoopSmoke_Config.h`.
-2. Fill in the Wi-Fi SSID and password.
-3. Set `SNOOPSMOKE_ALERT_WEBHOOK_URL` to the HTTPS endpoint for the selected app path.
-4. Optionally set `SNOOPSMOKE_ALERT_API_KEY`.
-5. Change the pin overrides only after the wiring has been traced.
+Example payload:
 
-`SnoopSmoke_Config.h` is ignored by Git. Never commit Wi-Fi passwords, Blynk device tokens, or API keys.
-
-## First upload: diagnostic firmware
-
-Do not upload the production sensor firmware to an unknown soldered prototype yet. Use `SnoopSmoke_Diagnostics/SnoopSmoke_Diagnostics.ino` first.
-
-This utility is deliberately conservative:
-
-- At startup it identifies the ESP32 chip, revision, CPU, flash, heap, SDK, MAC address, compile target, and target family.
-- It can scan nearby Wi-Fi networks without credentials or connecting to them.
-- It prints the ADC1 candidate pins for a classic ESP32.
-- Its optional ADC scan is disabled by default and only reads pins as high-impedance inputs after the engineer confirms voltage safety.
-- Its DHT test is disabled until a specific, verified data GPIO is configured.
-- It never drives unknown GPIOs and cannot automatically infer arbitrary soldered connections.
-
-No firmware can safely discover whether an unknown wire carries 3.3 V, 5 V, an external output, or a sensor signal. That requires the board label, schematic/trace information, and a multimeter.
-
-### Diagnostic procedure for the engineer
-
-1. Disconnect external power from the perfboard.
-2. Identify the exact ESP32 board marking and photograph the pin labels.
-3. Photograph both sides of the MQ module, including its pin labels and supply markings.
-4. Confirm that no unknown GPIO is being driven above 3.3 V before connecting USB.
-5. Open `SnoopSmoke_Diagnostics/SnoopSmoke_Diagnostics.ino` in Arduino IDE.
-6. Select the board matching the marking, then select the COM port.
-7. Click **Verify**, upload, and open Serial Monitor at `115200` baud.
-8. Send `i`, `p`, and `w` from the Serial Monitor.
-9. Do not send `a` or `d` until the engineer has verified the relevant GPIO and configured the diagnostic header.
-10. Send the complete serial output and close-up photos back for pin mapping.
-
-The diagnostic output can identify the board family and Wi-Fi environment, but it cannot prove that GPIO34 is connected to `AO`, that GPIO4 is connected to DHT data, or that any MQ analog voltage is safe.
-
-### Alert payload
-
-The firmware sends a JSON `POST` on a state change:
-
-```json
+~~~json
 {
   "device": "snoopsmoke-01",
   "event": "SMOKE_DETECTED",
@@ -110,172 +104,218 @@ The firmware sends a JSON `POST` on a state change:
   "humidity": 65.0,
   "wifi_rssi": -57
 }
-```
+~~~
 
-Possible events are `POSSIBLE_SMOKE`, `SMOKE_DETECTED`, and `CLEAR`. DHT values are `null` when a read fails.
+Valid events are POSSIBLE_SMOKE, SMOKE_DETECTED, and CLEAR. A failed DHT11
+read is represented by null. The API validates numeric ranges, stores the
+event, updates the device card, and applies a five-minute notification
+cooldown by default.
 
-## Choose the phone-alert path
+The production runtime configuration is stored in the hosting platform as
+environment variables. The device API key and Blynk token are not stored in
+GitHub, the public site source, or this README.
 
-The sensor firmware uses a vendor-neutral webhook so the hardware does not need to be rewritten when the phone app changes.
+## Blynk setup and verified mapping
 
-### Option A: Blynk
+Open [Blynk.Console](https://blynk.cloud) and sign in to the account that owns
+the SnoopSmoke template/device. The template has already been configured with:
 
-Use a small HTTPS relay that accepts the SnoopSmoke JSON, writes the readings to Blynk datastreams, and triggers a Blynk event for `POSSIBLE_SMOKE` or `SMOKE_DETECTED`.
+| Virtual pin | Datastream | Type | Value |
+| --- | --- | --- | --- |
+| V0 | smoke | Integer | Raw MQ ADC value |
+| V1 | temperature | Double | DHT11 degrees Celsius |
+| V2 | humidity | Double | DHT11 percent |
+| V3 | status | String | NORMAL, POSSIBLE SMOKE, or SMOKE DETECTED |
+| V4 | wifi_rssi | Integer | ESP32 RSSI in dBm |
 
-Suggested datastreams:
+The template events are:
 
-| Datastream | Type | Meaning |
+| Event name | Code | Purpose |
 | --- | --- | --- |
-| `smoke` | Integer | Raw calibrated MQ reading |
-| `temperature` | Double | DHT11 temperature in °C |
-| `humidity` | Double | DHT11 relative humidity |
-| `status` | String | Current state |
-| `wifi_rssi` | Integer | ESP32 Wi-Fi signal level |
+| Possible Smoke | possible_smoke | Warning event |
+| Smoke Detected | smoke_detected | Detection event |
+| Clear | clear | Return-to-normal event |
 
-Create Blynk Events for the warning and detected states, then enable push notifications for the intended recipients. Blynk documents datastreams and event-based notifications in its [Datastream documentation](https://docs.blynk.io/en/blynk.console/templates/datastreams) and [Notifications documentation](https://docs.blynk.io/en/getting-started/notification-management).
+The hosted relay updates the datastreams and logs Blynk events. The relay
+limits repeated event logging with the same cooldown used by the dashboard.
+Blynk notification preferences still belong to the Blynk account; enable push
+notifications for the intended teacher/facilitator and avoid enabling
+notifications for routine CLEAR events if the phone should stay quiet.
 
-### Option B: our own app
+The Blynk device token is held only as a hosted runtime secret. Do not put it
+in the ESP32 sketch or commit it to GitHub.
 
-Implement `POST /api/alerts` in the app backend. The endpoint should:
+## Local development and tests
 
-1. Verify `X-API-Key`.
-2. Validate `device`, `event`, and numeric ranges.
-3. Store the latest telemetry and event history.
-4. Send a push notification only for `SMOKE_DETECTED` and optionally `POSSIBLE_SMOKE`.
-5. Rate-limit repeated events and provide a `CLEAR` notification/state.
+The hosted site is the normal operational path. The original local backend is
+still retained for development and test work in backend/.
 
-Wi-Fi only connects the ESP32 to the network. Push notifications require the endpoint to be reachable and an app notification service to be configured.
+### Hosted site checks
 
-### First software checkpoint: vendor-neutral backend and dashboard
+On Windows, use an installed Node.js 22+ runtime:
 
-The repository now contains a small backend in `backend/`. It uses Node.js 18 or newer and has no third-party npm dependencies.
+~~~powershell
+cd C:\path\to\Sensdemo
+npm install
+npm run db:generate
+npm run build
+npm run lint
+npx tsc --noEmit
+~~~
 
-Install the Node.js 18+ LTS runtime first if the `node` command is not available. No `npm install` step is needed for this first checkpoint.
+### Existing backend tests
 
-It implements:
+~~~powershell
+node --test backend\test\backend.test.mjs
+~~~
 
-- `POST /api/alerts` with `X-API-Key` or Bearer-token authentication.
-- Payload validation for the current ESP32 JSON contract.
-- JSON-backed current device state and event history.
-- Device/room/status/readings, online timeout, and last detection time.
-- Notification cooldown so repeated detections do not spam the teacher.
-- `GET /api/state`, `GET /api/events`, and `GET /api/devices/:deviceId` for the dashboard.
-- A simple web dashboard at `/`.
-- Optional Blynk datastream/event relay.
-- Optional notification-provider webhook. This webhook is an integration point; it does not create phone push notifications by itself.
+The local backend uses backend/.env and JSON state under backend/data/. Those
+files are ignored by Git. The local backend is useful for simulated tests but
+should not be exposed directly to the internet.
 
-#### Run it locally
+## Diagnostics first, hardware last
 
-From PowerShell in the repository root:
+Use the hosted [diagnostics guide](https://snoopsmoke-monitor.immafishballl.chatgpt.site/diagnostics)
+when the prototype is finally available. It provides:
 
-```powershell
-Copy-Item backend/.env.example backend/.env
-notepad backend/.env
-node backend/server.mjs
-```
+- [Download SnoopSmoke_Diagnostics.ino](https://snoopsmoke-monitor.immafishballl.chatgpt.site/downloads/SnoopSmoke_Diagnostics.ino)
+- [Download SnoopSmoke_Diagnostics_Config.h.example](https://snoopsmoke-monitor.immafishballl.chatgpt.site/downloads/SnoopSmoke_Diagnostics_Config.h.example)
 
-Set a real local value for `SNOOPSMOKE_DEVICE_API_KEY` in `backend/.env`. Do not commit that file. The dashboard is then available at `http://127.0.0.1:8787/`.
+The diagnostic firmware prints the board identity, chip family, MAC address,
+build target, nearby Wi-Fi networks, and ADC1 candidate pins. It does not
+guess arbitrary soldered wires and it does not prove that an unknown analog
+signal is voltage-safe.
 
-For a same-Wi-Fi ESP32 test, set `SNOOPSMOKE_HOST=0.0.0.0`, set a dashboard API key, allow the port through the laptop firewall only on the private network, and set the firmware webhook to `http://LAPTOP_LAN_IP:8787/api/alerts`. Do not expose this development server directly to the public internet.
+When the engineer is ready:
 
-The backend stores development data in the ignored file `backend/data/state.json`. To test the endpoint without an ESP32, use a JSON request with the same API key:
+1. Disconnect batteries, adapters, and every external power source.
+2. Plug only the ESP32 USB cable into the computer.
+3. Identify the exact board marking and photograph both sides of the MQ module
+   and the ESP32 carrier.
+4. In Arduino IDE, install/select the ESP32 board package and the DHT sensor
+   library versions described below.
+5. Open the downloaded diagnostics sketch.
+6. Select the correct ESP32 board and COM port, click Verify, then Upload.
+7. Open Serial Monitor at 115200 baud.
+8. Send i, p, and w. Do not send a or d until the MQ voltage and DHT data wire
+   have been verified.
 
-```powershell
-$headers = @{ "X-API-Key" = "replace-with-a-long-random-device-key" }
-$body = @{
-  device = "snoopsmoke-01"
-  event = "SMOKE_DETECTED"
-  status = "SMOKE DETECTED"
-  smoke = 842
-  temperature = 28.4
-  humidity = 65.0
-  wifi_rssi = -57
-} | ConvertTo-Json
+This ordering intentionally keeps the physical assembly as the final piece.
 
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8787/api/alerts -Headers $headers -ContentType "application/json" -Body $body
-```
+## Future plug-and-play ESP32 configuration
 
-The dashboard should show the device, `ROOM-001`, `SMOKE DETECTED`, raw smoke value `842`, and an event-history row. The backend assigns the configured room when the current firmware payload does not include one.
+The production firmware configuration example already contains the hosted
+endpoint:
 
-#### Blynk relay configuration
+~~~text
+SnoopSmoke_Sensor/SnoopSmoke_Config.h.example
+~~~
 
-The backend uses Blynk's device HTTPS API, so the ESP32 remains unaware of Blynk. Configure these datastreams in the Blynk template/device:
+After the wiring is verified, copy it to
+SnoopSmoke_Sensor/SnoopSmoke_Config.h and set only:
 
-| Virtual pin | Datastream | Type |
-| --- | --- | --- |
-| `V0` | smoke | Integer |
-| `V1` | temperature | Double |
-| `V2` | humidity | Double |
-| `V3` | status | String |
-| `V4` | wifi_rssi | Integer |
+~~~cpp
+#define SNOOPSMOKE_WIFI_SSID "YOUR_WIFI_NAME"
+#define SNOOPSMOKE_WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
+#define SNOOPSMOKE_ALERT_API_KEY "THE_PRIVATE_DEVICE_KEY"
+~~~
 
-Create Blynk Events with these exact event codes:
+The hosted URL is prefilled. The private API key must be supplied through a
+secure channel to the person uploading the firmware; it is intentionally not
+published. Pin overrides must remain commented out until the actual wires have
+been traced.
 
-| Event | Code | Default notification behavior |
-| --- | --- | --- |
-| Possible Smoke | `possible_smoke` | Enabled, cooldown protected |
-| Smoke Detected | `smoke_detected` | Enabled, cooldown protected |
-| Clear | `clear` | Logged; push disabled by default |
+Arduino IDE settings for the production sketch:
 
-Put the Blynk device token only in local `backend/.env` as `BLYNK_AUTH_TOKEN`. The relay calls Blynk's [datastream update API](https://docs.blynk.io/en/blynk.cloud/device-https-api/update-multiple-datastreams-api) and [event API](https://docs.blynk.io/en/blynk.cloud/device-https-api/trigger-events-api). Blynk event notification limits and account settings still apply.
+- Board: select the exact board carrier identified by the engineer. ESP32 Dev
+  Module is a common compile target for a classic ESP32-WROOM-32U carrier, but
+  it is not proof of the board wiring.
+- Port: select the COM port that appears when the ESP32 is connected.
+- Serial Monitor: 115200 baud.
+- Libraries: DHT sensor library 1.4.7 and Adafruit Unified Sensor 1.1.15.
+- ESP32 Arduino core: the repository environment was checked around 3.3.11;
+  avoid changing versions during the first hardware test.
 
-#### Push notifications
+The firmware currently samples every two seconds, provides local warning and
+detection states, retries Wi-Fi and pending webhooks, and sends state-change
+events. Continuous normal telemetry is not yet sent every few seconds; this
+can be added later if the dashboard must remain online while the sensor stays
+normal.
 
-The custom dashboard records events but does not pretend that a browser page is a phone push service. To send real push notifications, configure a provider or a small relay that accepts `SNOOPSMOKE_NOTIFICATION_WEBHOOK_URL` and forwards valid detection events through a service such as Firebase Cloud Messaging, ntfy, Pushover, or an institution-approved provider. Keep that provider credential outside Git.
+## Hardware safety and recommended target map
 
-This first backend checkpoint is suitable for local/simulated testing. Before exposing it to the public internet, deploy it behind HTTPS, keep both API keys secret, and harden the ESP32 HTTPS client certificate validation.
+The following is a universal target map, not a confirmed schematic:
 
-## Calibration and testing sequence
+| Function | Target GPIO | Prototype connection to verify |
+| --- | ---: | --- |
+| MQ AO | GPIO34 | MQ module analog output to ADC1 input |
+| DHT11 DATA/S | GPIO4 | DHT module data line |
+| Alert LED | GPIO26 | GPIO to 220–330 ohm resistor to LED anode; cathode to GND |
+| Buzzer | GPIO25 | GPIO to an active-buzzer driver/input |
+| Optional button | GPIO27 | Button to GND; reserved for future acknowledgement |
 
-The MQ threshold values are raw ADC values, not certified ppm values and not a reliable way to identify a specific substance. MQ-2/MQ-135 sensors respond to multiple gases and require warm-up and calibration.
+Do not connect the physical circuit based only on this table.
 
-1. Verify the exact ESP32 model and trace every wire.
-2. Power the MQ module safely and confirm the analog voltage with a multimeter.
-3. Upload with the webhook URL empty first.
-4. Open Serial Monitor at `115200` baud.
-5. Allow the MQ sensor to warm up according to its datasheet.
-6. Record clean-air readings and controlled test readings.
-7. Set warning and detection thresholds in the local config or sketch.
-8. Test the LED/buzzer locally before enabling cloud notifications.
-9. Enable the webhook and verify one warning, one detection, and one clear event.
-10. Test Wi-Fi loss and recovery before relying on the system for supervision.
+MQ-2/MQ-135 modules often use a 5 V heater and may output an analog voltage
+above 3.3 V. Before connecting AO to any ESP32 GPIO:
 
-This is a prototype alert system, not a certified fire, health, or security alarm. It cannot reliably distinguish smoke from vape aerosol without additional sensing, calibration, and testing.
+1. Identify the exact MQ module and labels VCC, GND, AO, and DO.
+2. Identify the supply rail actually used by the prototype.
+3. Measure the maximum AO voltage with a multimeter.
+4. If the module can output 5 V, use a divider before the ESP32 ADC:
+   connect a 10 kΩ resistor from AO to the ADC node, and a 20 kΩ resistor
+   from the ADC node to GND. A 5 V input then becomes about 3.33 V. Confirm
+   the real output and resistor values before powering the GPIO.
+5. Join the ESP32 and sensor grounds.
 
-## Compile and upload
+Never connect an unknown 5 V analog output directly to GPIO34. Use a transistor
+or suitable driver for a buzzer that draws more current than an ESP32 GPIO can
+safely provide.
 
-The sketch is an Arduino project in `SnoopSmoke_Sensor/`.
+## Calibration and limitations
 
-With Arduino CLI:
+MQ sensors react to multiple gases and aerosols. Raw ADC values are prototype
+readings only. Do not convert them to ppm without a validated sensor model,
+calibration procedure, and reference instrument.
 
-```text
-arduino-cli compile --fqbn esp32:esp32:esp32 SnoopSmoke_Sensor
-arduino-cli upload -p YOUR_PORT --fqbn esp32:esp32:esp32 SnoopSmoke_Sensor
-```
+Calibration workflow:
 
-With Arduino IDE, open `SnoopSmoke_Sensor/SnoopSmoke_Sensor.ino`, select the matching ESP32 board and port, click Verify, then Upload. Open Serial Monitor at `115200` baud.
+1. Warm the sensor according to its datasheet.
+2. Record a clean-air baseline over time.
+3. Perform controlled, safe test exposures approved for the project.
+4. Record the raw readings and environmental conditions.
+5. Choose experimental warning and detection thresholds.
+6. Test false positives from temperature, humidity, cleaners, and other gases.
+7. Use Possible Smoke or Possible Aerosol/Smoke Event, never nicotine detected,
+   unless additional hardware and validation support that claim.
 
-The last verified build used ESP32 core `3.3.11`, DHT sensor library `1.4.7`, and Adafruit Unified Sensor `1.1.15`.
+This is not a certified fire alarm, health device, security system, or
+nicotine detector.
 
-## Project status
+## Security
 
-| Area | Status |
-| --- | --- |
-| ESP32 local sensor firmware | Implemented |
-| DHT11 failure handling | Implemented |
-| Wi-Fi reconnect | Implemented |
-| Vendor-neutral webhook payload | Implemented; backend endpoint available locally at `/api/alerts` |
-| Universal target pin map | Documented, not yet verified against the soldered board |
-| Vendor-neutral backend/dashboard | Implemented, local configuration and hosting pending |
-| Blynk relay/app | Relay implemented, live credentials/template not tested |
-| Custom teacher app | Web dashboard implemented; native app not planned for first checkpoint |
-| Push notifications | Provider integration pending |
-| MQ calibration | Pending physical warm-up/testing |
-| Hardware runtime test | Pending verified wiring and board access |
+Never commit:
 
-## References
+- Wi-Fi passwords.
+- Blynk auth tokens.
+- Device API keys.
+- Notification-provider credentials.
+- Private local configuration files.
 
-- [Arduino ESP32 Wi-Fi API](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/wifi.html)
-- [Arduino ESP32 ADC API](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/adc.html)
-- [Blynk datastreams](https://docs.blynk.io/en/blynk.console/templates/datastreams)
-- [Blynk events and notifications](https://docs.blynk.io/en/blynk.console/templates/events)
+The ignored files backend/.env,
+SnoopSmoke_Sensor/SnoopSmoke_Config.h, and
+SnoopSmoke_Diagnostics/SnoopSmoke_Diagnostics_Config.h are the intended local
+configuration locations. Rotate credentials if they are ever exposed.
+
+## Repository layout
+
+~~~text
+backend/                 Local Node backend, relay, and tests
+app/                     Hosted dashboard, diagnostics page, and API routes
+lib/                     Hosted D1 store, validation adapter, and integrations
+db/                      D1/Drizzle schema
+drizzle/                 Generated D1 migrations
+public/downloads/        Hosted diagnostics downloads
+SnoopSmoke_Sensor/       Production ESP32 firmware and config example
+SnoopSmoke_Diagnostics/  Conservative board/Wi-Fi diagnostic firmware
+~~~
