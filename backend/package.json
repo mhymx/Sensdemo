@@ -1,0 +1,15 @@
+{
+  "name": "snoopsmoke-backend",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Small vendor-neutral SnoopSmoke alert backend and dashboard",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test",
+    "check": "node --check server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

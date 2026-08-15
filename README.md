@@ -146,6 +146,85 @@ Implement `POST /api/alerts` in the app backend. The endpoint should:
 
 Wi-Fi only connects the ESP32 to the network. Push notifications require the endpoint to be reachable and an app notification service to be configured.
 
+### First software checkpoint: vendor-neutral backend and dashboard
+
+The repository now contains a small backend in `backend/`. It uses Node.js 18 or newer and has no third-party npm dependencies.
+
+Install the Node.js 18+ LTS runtime first if the `node` command is not available. No `npm install` step is needed for this first checkpoint.
+
+It implements:
+
+- `POST /api/alerts` with `X-API-Key` or Bearer-token authentication.
+- Payload validation for the current ESP32 JSON contract.
+- JSON-backed current device state and event history.
+- Device/room/status/readings, online timeout, and last detection time.
+- Notification cooldown so repeated detections do not spam the teacher.
+- `GET /api/state`, `GET /api/events`, and `GET /api/devices/:deviceId` for the dashboard.
+- A simple web dashboard at `/`.
+- Optional Blynk datastream/event relay.
+- Optional notification-provider webhook. This webhook is an integration point; it does not create phone push notifications by itself.
+
+#### Run it locally
+
+From PowerShell in the repository root:
+
+```powershell
+Copy-Item backend/.env.example backend/.env
+notepad backend/.env
+node backend/server.mjs
+```
+
+Set a real local value for `SNOOPSMOKE_DEVICE_API_KEY` in `backend/.env`. Do not commit that file. The dashboard is then available at `http://127.0.0.1:8787/`.
+
+For a same-Wi-Fi ESP32 test, set `SNOOPSMOKE_HOST=0.0.0.0`, set a dashboard API key, allow the port through the laptop firewall only on the private network, and set the firmware webhook to `http://LAPTOP_LAN_IP:8787/api/alerts`. Do not expose this development server directly to the public internet.
+
+The backend stores development data in the ignored file `backend/data/state.json`. To test the endpoint without an ESP32, use a JSON request with the same API key:
+
+```powershell
+$headers = @{ "X-API-Key" = "replace-with-a-long-random-device-key" }
+$body = @{
+  device = "snoopsmoke-01"
+  event = "SMOKE_DETECTED"
+  status = "SMOKE DETECTED"
+  smoke = 842
+  temperature = 28.4
+  humidity = 65.0
+  wifi_rssi = -57
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8787/api/alerts -Headers $headers -ContentType "application/json" -Body $body
+```
+
+The dashboard should show the device, `ROOM-001`, `SMOKE DETECTED`, raw smoke value `842`, and an event-history row. The backend assigns the configured room when the current firmware payload does not include one.
+
+#### Blynk relay configuration
+
+The backend uses Blynk's device HTTPS API, so the ESP32 remains unaware of Blynk. Configure these datastreams in the Blynk template/device:
+
+| Virtual pin | Datastream | Type |
+| --- | --- | --- |
+| `V0` | smoke | Integer |
+| `V1` | temperature | Double |
+| `V2` | humidity | Double |
+| `V3` | status | String |
+| `V4` | wifi_rssi | Integer |
+
+Create Blynk Events with these exact event codes:
+
+| Event | Code | Default notification behavior |
+| --- | --- | --- |
+| Possible Smoke | `possible_smoke` | Enabled, cooldown protected |
+| Smoke Detected | `smoke_detected` | Enabled, cooldown protected |
+| Clear | `clear` | Logged; push disabled by default |
+
+Put the Blynk device token only in local `backend/.env` as `BLYNK_AUTH_TOKEN`. The relay calls Blynk's [datastream update API](https://docs.blynk.io/en/blynk.cloud/device-https-api/update-multiple-datastreams-api) and [event API](https://docs.blynk.io/en/blynk.cloud/device-https-api/trigger-events-api). Blynk event notification limits and account settings still apply.
+
+#### Push notifications
+
+The custom dashboard records events but does not pretend that a browser page is a phone push service. To send real push notifications, configure a provider or a small relay that accepts `SNOOPSMOKE_NOTIFICATION_WEBHOOK_URL` and forwards valid detection events through a service such as Firebase Cloud Messaging, ntfy, Pushover, or an institution-approved provider. Keep that provider credential outside Git.
+
+This first backend checkpoint is suitable for local/simulated testing. Before exposing it to the public internet, deploy it behind HTTPS, keep both API keys secret, and harden the ESP32 HTTPS client certificate validation.
+
 ## Calibration and testing sequence
 
 The MQ threshold values are raw ADC values, not certified ppm values and not a reliable way to identify a specific substance. MQ-2/MQ-135 sensors respond to multiple gases and require warm-up and calibration.
@@ -185,10 +264,12 @@ The last verified build used ESP32 core `3.3.11`, DHT sensor library `1.4.7`, an
 | ESP32 local sensor firmware | Implemented |
 | DHT11 failure handling | Implemented |
 | Wi-Fi reconnect | Implemented |
-| Vendor-neutral webhook payload | Implemented, endpoint still to be selected |
+| Vendor-neutral webhook payload | Implemented; backend endpoint available locally at `/api/alerts` |
 | Universal target pin map | Documented, not yet verified against the soldered board |
-| Blynk relay/app | Pending choice and credentials |
-| Custom teacher app | Pending backend/app endpoint |
+| Vendor-neutral backend/dashboard | Implemented, local configuration and hosting pending |
+| Blynk relay/app | Relay implemented, live credentials/template not tested |
+| Custom teacher app | Web dashboard implemented; native app not planned for first checkpoint |
+| Push notifications | Provider integration pending |
 | MQ calibration | Pending physical warm-up/testing |
 | Hardware runtime test | Pending verified wiring and board access |
 

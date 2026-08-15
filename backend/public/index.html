@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SnoopSmoke Dashboard</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">SCHOOL RESEARCH PROTOTYPE</p>
+          <h1>SnoopSmoke</h1>
+          <p class="subtitle">Smoke and environmental event monitoring</p>
+        </div>
+        <div class="connection-pill" id="connection-pill">Loading…</div>
+      </header>
+
+      <section class="toolbar" aria-label="Dashboard controls">
+        <label>
+          Dashboard token (only needed when configured)
+          <input id="dashboard-token" type="password" autocomplete="off" placeholder="Optional" />
+        </label>
+        <button id="save-token" type="button">Save token</button>
+        <button id="refresh" type="button">Refresh</button>
+        <span class="updated" id="updated">Not loaded</span>
+      </section>
+
+      <section id="empty-state" class="empty-state" hidden>
+        <h2>No device events yet</h2>
+        <p>Start the backend, then send a valid POST request to <code>/api/alerts</code>.</p>
+      </section>
+
+      <section id="device-grid" class="device-grid" aria-live="polite"></section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">AUDIT TRAIL</p>
+            <h2>Event history</h2>
+          </div>
+          <span id="event-count" class="muted">0 events</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Device</th>
+                <th>Room</th>
+                <th>Event</th>
+                <th>Sensor value</th>
+                <th>Duration</th>
+                <th>Notification</th>
+              </tr>
+            </thead>
+            <tbody id="events-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <footer>
+        <span>Prototype readings are raw sensor values, not certified ppm or nicotine measurements.</span>
+        <span id="error-message" class="error" role="status"></span>
+      </footer>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
