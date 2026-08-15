@@ -66,6 +66,36 @@ The current sketch:
 
 `SnoopSmoke_Config.h` is ignored by Git. Never commit Wi-Fi passwords, Blynk device tokens, or API keys.
 
+## First upload: diagnostic firmware
+
+Do not upload the production sensor firmware to an unknown soldered prototype yet. Use `SnoopSmoke_Diagnostics/SnoopSmoke_Diagnostics.ino` first.
+
+This utility is deliberately conservative:
+
+- At startup it identifies the ESP32 chip, revision, CPU, flash, heap, SDK, MAC address, compile target, and target family.
+- It can scan nearby Wi-Fi networks without credentials or connecting to them.
+- It prints the ADC1 candidate pins for a classic ESP32.
+- Its optional ADC scan is disabled by default and only reads pins as high-impedance inputs after the engineer confirms voltage safety.
+- Its DHT test is disabled until a specific, verified data GPIO is configured.
+- It never drives unknown GPIOs and cannot automatically infer arbitrary soldered connections.
+
+No firmware can safely discover whether an unknown wire carries 3.3 V, 5 V, an external output, or a sensor signal. That requires the board label, schematic/trace information, and a multimeter.
+
+### Diagnostic procedure for the engineer
+
+1. Disconnect external power from the perfboard.
+2. Identify the exact ESP32 board marking and photograph the pin labels.
+3. Photograph both sides of the MQ module, including its pin labels and supply markings.
+4. Confirm that no unknown GPIO is being driven above 3.3 V before connecting USB.
+5. Open `SnoopSmoke_Diagnostics/SnoopSmoke_Diagnostics.ino` in Arduino IDE.
+6. Select the board matching the marking, then select the COM port.
+7. Click **Verify**, upload, and open Serial Monitor at `115200` baud.
+8. Send `i`, `p`, and `w` from the Serial Monitor.
+9. Do not send `a` or `d` until the engineer has verified the relevant GPIO and configured the diagnostic header.
+10. Send the complete serial output and close-up photos back for pin mapping.
+
+The diagnostic output can identify the board family and Wi-Fi environment, but it cannot prove that GPIO34 is connected to `AO`, that GPIO4 is connected to DHT data, or that any MQ analog voltage is safe.
+
 ### Alert payload
 
 The firmware sends a JSON `POST` on a state change:

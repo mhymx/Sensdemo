@@ -1,0 +1,13 @@
+#pragma once
+
+// Copy this file to SnoopSmoke_Diagnostics_Config.h only after the engineer
+// confirms the board and verifies GPIO voltage safety.
+
+// Keep this 0 for the first upload. Set to 1 only after every candidate GPIO
+// has been measured and confirmed not to exceed 3.3 V.
+#define SNOOPSMOKE_DIAG_ENABLE_PIN_SCAN 0
+
+// Keep -1 until the DHT data wire has been traced to a specific GPIO.
+// Example only:
+// #define SNOOPSMOKE_DIAG_DHT_PIN 4
+// #define SNOOPSMOKE_DIAG_DHT_TYPE DHT11
