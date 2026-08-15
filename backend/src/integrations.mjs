@@ -2,7 +2,9 @@ function asError(error) {
   return error instanceof Error ? error : new Error(String(error));
 }
 
-async function fetchWithTimeout(fetchImpl, url, options = {}, timeoutMs = 5000) {
+// Cloud integrations can need several seconds for a fresh TLS connection.
+// Keep the timeout bounded, but avoid failing healthy first requests too early.
+async function fetchWithTimeout(fetchImpl, url, options = {}, timeoutMs = 15000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
